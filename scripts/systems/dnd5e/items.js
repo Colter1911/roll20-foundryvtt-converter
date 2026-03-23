@@ -213,6 +213,8 @@ export function buildNPCActionItems(r20char, idMapper) {
   for (const [section, activationType] of Object.entries(NPC_ACTION_SECTIONS)) {
     const rows = r20char.repeating[section] ?? [];
     for (const row of rows) {
+      // Пропустить пустые строки без имени и описания
+      if (!row.name && !row.description) continue;
       try {
         items.push({
           _id:  idMapper.getOrCreate(row._id),

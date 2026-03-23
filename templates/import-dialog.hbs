@@ -55,6 +55,46 @@
       value="{{lastOptions.secretDoorColor}}" placeholder="#ff0000" style="width:100px" />
   </div>
 
+  <h3>Библиотечная сборка НПС</h3>
+  <div class="form-group">
+    <input type="checkbox" name="useLibrary" id="r20-useLibrary"
+      {{#if lastOptions.useLibrary}}checked{{/if}} />
+    <label for="r20-useLibrary">Обогащать НПС из компендиумов</label>
+  </div>
+
+  <div class="library-options" id="r20-library-options"
+    style="{{#unless lastOptions.useLibrary}}display:none{{/unless}}; margin-left:16px">
+
+    {{#if modules}}
+    <p style="margin:6px 0 4px; font-size:0.85em">Выберите компендиумы-источники:</p>
+    <div style="max-height:160px; overflow-y:auto; border:1px solid var(--color-border-light-tertiary); border-radius:3px; padding:4px 8px">
+      {{#each modules}}
+      <div class="form-group" style="margin:3px 0">
+        <input type="checkbox" name="libraryModule" id="r20-mod-{{id}}" value="{{id}}"
+          {{#if checked}}checked{{/if}} />
+        <label for="r20-mod-{{id}}" style="font-size:0.9em">{{label}}</label>
+      </div>
+      {{/each}}
+    </div>
+    {{else}}
+    <p style="font-size:0.85em; color:var(--color-text-dark-secondary)">Нет доступных компендиумов (нужны паки типа Actor или Item).</p>
+    {{/if}}
+
+    <div class="form-group" style="margin-top:8px; align-items:center; gap:8px">
+      <label style="font-size:0.85em; white-space:nowrap">Порог совпадения:</label>
+      <input type="range" name="libThreshold" min="50" max="100" step="5"
+        value="{{thresholdPct}}"
+        style="flex:1" oninput="this.nextElementSibling.textContent=this.value+'%'" />
+      <span style="min-width:36px; font-size:0.85em">{{thresholdPct}}%</span>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('r20-useLibrary')?.addEventListener('change', function() {
+      document.getElementById('r20-library-options').style.display = this.checked ? '' : 'none';
+    });
+  </script>
+
   <p class="warning-text">{{localize "R20Import.Dialog.Warning"}}</p>
 
   <footer>

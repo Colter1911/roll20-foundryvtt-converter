@@ -2,8 +2,9 @@
  * R20ImportDialog — ApplicationV2 диалог импорта Roll20 кампании.
  */
 
-import { R20Importer } from "../importer.js";
-import { R20ProgressDialog } from "./progress-dialog.js";
+import { R20Importer }       from "../importer.js";
+import { R20ProgressDialog }  from "./progress-dialog.js";
+import { CompendiumIndex }    from "../library/compendium-index.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -30,8 +31,15 @@ export class R20ImportDialog extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Подготовить контекст для шаблона */
   async _prepareContext(options) {
-    const lastOptions = game.settings.get("r20-to-fvtt", "lastOptions") ?? {};
-    return { lastOptions };
+    const lastOptions   = game.settings.get("r20-to-fvtt", "lastOptions") ?? {};
+    const lastModuleIds = new Set(lastOptions.moduleIds ?? []);
+    const modules       = CompendiumIndex.getAvailableModules();
+
+    return {
+      lastOptions,
+      thresholdPct: Math.round((lastOptions.threshold ?? 0.8) * 100),
+      modules: modules.map(m => ({ ...m, checked: lastModuleIds.has(m.id) })),
+    };
   }
 
   /** Запуск импорта */
@@ -46,6 +54,10 @@ export class R20ImportDialog extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     // Собрать опции из формы
+    const moduleIds    = [...this.element.querySelectorAll('[name="libraryModule"]:checked')]
+      .map(el => el.value);
+    const thresholdRaw = parseInt(this.element.querySelector('[name="libThreshold"]')?.value ?? "80");
+
     const opts = {
       importActors:    this.element.querySelector('[name="importActors"]')?.checked    ?? true,
       importJournal:   this.element.querySelector('[name="importJournal"]')?.checked   ?? true,
@@ -56,6 +68,9 @@ export class R20ImportDialog extends HandlebarsApplicationMixin(ApplicationV2) {
       autoDoors:       this.element.querySelector('[name="autoDoors"]')?.checked       ?? false,
       doorColor:       this.element.querySelector('[name="doorColor"]')?.value         ?? "#6600cc",
       secretDoorColor: this.element.querySelector('[name="secretDoorColor"]')?.value   ?? "#ff0000",
+      useLibrary:      this.element.querySelector('[name="useLibrary"]')?.checked      ?? false,
+      moduleIds,
+      threshold:       thresholdRaw / 100,
     };
 
     // Сохранить для следующего запуска

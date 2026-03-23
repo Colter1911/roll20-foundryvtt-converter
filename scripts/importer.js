@@ -19,6 +19,8 @@ import {
 } from "./core/r20-document.js";
 import { getDnd5eAdapters } from "./systems/dnd5e/index.js";
 import { GenericAdapter }   from "./systems/generic/index.js";
+import { CompendiumIndex }  from "./library/compendium-index.js";
+import { ActorAssembler }   from "./library/actor-assembler.js";
 
 export class R20Importer {
   constructor(options) {
@@ -57,6 +59,23 @@ export class R20Importer {
       () => buildFolderTree(campaign.journalfolder ?? [], "Actor",        this.idMapper));
     const journalFolderMap = await this.#safeRun("buildJournalFolders",
       () => buildFolderTree(campaign.journalfolder ?? [], "JournalEntry", this.idMapper));
+
+    // ── Шаг 1.5: Библиотечный индекс (если включён) ──
+    this.assembler = null;
+    if (this.options.useLibrary) {
+      const moduleIds = this.options.moduleIds ?? [];
+      if (moduleIds.length > 0) {
+        progress("Индексирование компендиумов...");
+        try {
+          const index = new CompendiumIndex();
+          await index.build(moduleIds, this.options.threshold ?? 0.8);
+          this.assembler = new ActorAssembler(index, { threshold: this.options.threshold ?? 0.8 });
+        } catch (e) {
+          this.warnings.push(`Library index failed: ${e.message}`);
+          console.warn("R20Import | Library index error:", e);
+        }
+      }
+    }
 
     // ── Шаг 2: Персонажи (Акторы) ────────────────────
     if (this.options.importActors && campaign.characters?.length > 0) {
@@ -129,7 +148,10 @@ export class R20Importer {
       if (!tokenZipPath) tokenZipPath = this.#findFileInDir(charDir, "token");
 
       try {
-        const data = await adapter.toActorData(r20ch, this.idMapper, this.assets, zip, playerIdMap, folderMap, avatarZipPath, tokenZipPath);
+        let data = await adapter.toActorData(r20ch, this.idMapper, this.assets, zip, playerIdMap, folderMap, avatarZipPath, tokenZipPath);
+        if (data && this.assembler) {
+          data = await this.assembler.assemble(data, r20ch, this.idMapper);
+        }
         if (data) actorsData.push(data);
       } catch (err) {
         this.errors.push(`Actor "${r20ch.name}": ${err.message}`);

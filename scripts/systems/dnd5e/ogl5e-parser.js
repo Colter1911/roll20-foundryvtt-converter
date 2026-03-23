@@ -14,6 +14,83 @@ import {
   buildOwnership, parseAC, parseSpeed, parseCR, parseNPCType
 } from "../../core/utils.js";
 
+// ── Типы урона: [подстрока, dnd5e id] ──────────────────────────────────────
+const DAMAGE_KEYS = [
+  ["acid",        "acid"],       ["кислот",    "acid"],
+  ["bludgeoning", "bludgeoning"],["дробящ",    "bludgeoning"], ["дроблен",  "bludgeoning"],
+  ["cold",        "cold"],       ["холод",     "cold"],         ["ледян",    "cold"],
+  ["fire",        "fire"],       ["огонь",     "fire"],         ["огн",      "fire"],   ["пламен", "fire"],
+  ["force",       "force"],      ["силов",     "force"],
+  ["lightning",   "lightning"],  ["молни",     "lightning"],    ["электр",   "lightning"],
+  ["necrotic",    "necrotic"],   ["некрот",    "necrotic"],
+  ["piercing",    "piercing"],   ["колющ",     "piercing"],     ["укол",     "piercing"],
+  ["poison",      "poison"],     ["ядов",      "poison"],       ["яд",       "poison"],
+  ["psychic",     "psychic"],    ["психич",    "psychic"],
+  ["radiant",     "radiant"],    ["излуч",     "radiant"],      ["лучист",   "radiant"],
+  ["slashing",    "slashing"],   ["рубящ",     "slashing"],     ["рублен",   "slashing"],
+  ["thunder",     "thunder"],    ["гром",      "thunder"],      ["звуков",   "thunder"],
+];
+const BYPASS_KEYS = [
+  ["nonmagical", "mgc"], ["немагич", "mgc"],
+  ["adamantine", "ada"], ["адамантин", "ada"],
+  ["silver",     "sil"], ["серебр",   "sil"],
+];
+const CONDITION_KEYS = [
+  ["blinded",        "blinded"],       ["слеп",          "blinded"],     ["ослепл",       "blinded"],
+  ["charmed",        "charmed"],       ["очаров",         "charmed"],
+  ["deafened",       "deafened"],      ["оглох",          "deafened"],    ["глухот",       "deafened"],
+  ["diseased",       "diseased"],      ["болезн",         "diseased"],
+  ["exhaustion",     "exhaustion"],    ["истощ",          "exhaustion"],  ["утомл",        "exhaustion"],
+  ["frightened",     "frightened"],    ["испуг",          "frightened"],  ["страх",        "frightened"],
+  ["grappled",       "grappled"],      ["захват",         "grappled"],    ["схвач",        "grappled"],
+  ["incapacitated",  "incapacitated"], ["недееспос",      "incapacitated"],
+  ["выход из строя", "incapacitated"],
+  ["invisible",      "invisible"],     ["невидим",        "invisible"],
+  ["paralyzed",      "paralyzed"],     ["парализ",        "paralyzed"],
+  ["petrified",      "petrified"],     ["окамен",         "petrified"],
+  ["poisoned",       "poisoned"],      ["отравл",         "poisoned"],
+  ["prone",          "prone"],         ["ничком",         "prone"],       ["распластан",   "prone"],
+  ["restrained",     "restrained"],    ["обездвиж",       "restrained"],  ["сковани",      "restrained"],
+  ["stunned",        "stunned"],       ["оглушён",        "stunned"],     ["шок",          "stunned"],
+  ["unconscious",    "unconscious"],   ["без сознания",   "unconscious"],
+];
+
+function parseDamageTraits(raw) {
+  if (!raw) return { value: [], bypasses: [], custom: "" };
+  const lower    = String(raw).toLowerCase().trim();
+  const value    = new Set();
+  const bypasses = new Set();
+  const tokens   = lower.split(/[,;\/]|\bи\b|\band\b/).map(t => t.trim()).filter(Boolean);
+  const unmatched = [];
+  for (const token of tokens) {
+    let matchedDmg = false, matchedByp = false;
+    for (const [key, id] of BYPASS_KEYS) {
+      if (token.includes(key)) { bypasses.add(id); matchedByp = true; }
+    }
+    for (const [key, id] of DAMAGE_KEYS) {
+      if (token.includes(key)) { value.add(id); matchedDmg = true; }
+    }
+    if (!matchedDmg && !matchedByp) unmatched.push(token);
+  }
+  return { value: [...value], bypasses: [...bypasses], custom: unmatched.join(", ") };
+}
+
+function parseConditionTraits(raw) {
+  if (!raw) return { value: [], custom: "" };
+  const lower  = String(raw).toLowerCase().trim();
+  const value  = new Set();
+  const tokens = lower.split(/[,;\/]|\bи\b|\band\b/).map(t => t.trim()).filter(Boolean);
+  const unmatched = [];
+  for (const token of tokens) {
+    let matched = false;
+    for (const [key, id] of CONDITION_KEYS) {
+      if (token.includes(key)) { value.add(id); matched = true; }
+    }
+    if (!matched) unmatched.push(token);
+  }
+  return { value: [...value], custom: unmatched.join(", ") };
+}
+
 export class OGL5eAdapter extends BaseSystemAdapter {
   get priority() { return 10; }
 
@@ -116,6 +193,10 @@ export class OGL5eAdapter extends BaseSystemAdapter {
 
   #buildNPCSystem(r20char) {
     const npcType = parseNPCType(r20char.attr("npc_type"));
+    const di = parseDamageTraits(r20char.attr("npc_immunities")      || r20char.attr("damage_immunities"));
+    const dr = parseDamageTraits(r20char.attr("npc_resistances")     || r20char.attr("damage_resistances"));
+    const dv = parseDamageTraits(r20char.attr("npc_vulnerabilities") || r20char.attr("damage_vulnerabilities"));
+    const ci = parseConditionTraits(r20char.attr("npc_condition_immunities") || r20char.attr("condition_immunities"));
     return {
       abilities: this.#buildAbilities(r20char),
       attributes: this.#buildNPCAttributes(r20char),
@@ -136,13 +217,14 @@ export class OGL5eAdapter extends BaseSystemAdapter {
         legres: { spent: 0, max: r20char.num("npc_legendary_resist")  },
         lair:   { value: false, initiative: null, inside: false },
       },
+      skills: this.#buildSkills(r20char, true),
       traits: {
         size: this.#parseSize(r20char.attr("npc_type")),
         languages: { value: [], custom: r20char.attr("npc_languages") },
-        di: { value: [], bypasses: [], custom: r20char.attr("npc_immunities")      || r20char.attr("damage_immunities") },
-        dr: { value: [], bypasses: [], custom: r20char.attr("npc_resistances")     || r20char.attr("damage_resistances") },
-        dv: { value: [], bypasses: [], custom: r20char.attr("npc_vulnerabilities") || r20char.attr("damage_vulnerabilities") },
-        ci: { value: [], custom: r20char.attr("npc_condition_immunities") || r20char.attr("condition_immunities") },
+        di: { value: di.value, bypasses: di.bypasses, custom: di.custom },
+        dr: { value: dr.value, bypasses: dr.bypasses, custom: dr.custom },
+        dv: { value: dv.value, bypasses: dv.bypasses, custom: dv.custom },
+        ci: { value: ci.value, custom: ci.custom },
       },
     };
   }
@@ -152,9 +234,12 @@ export class OGL5eAdapter extends BaseSystemAdapter {
   #buildAbilities(r20char) {
     const abilities = {};
     for (const [fvtt, r20] of ABILITIES) {
+      // PC/Jumpgate: "strength_save_prof"; Legacy NPC: "npc_str_save_flag"
+      const saveProf = r20char.flag(`${r20}_save_prof`)
+                    || r20char.flag(`npc_${fvtt}_save_flag`);
       abilities[fvtt] = {
         value:      r20char.num(r20, 10),
-        proficient: r20char.flag(`${r20}_save_prof`) ? 1 : 0,
+        proficient: saveProf ? 1 : 0,
       };
     }
     return abilities;
@@ -215,10 +300,12 @@ export class OGL5eAdapter extends BaseSystemAdapter {
     };
   }
 
-  #buildSkills(r20char) {
+  #buildSkills(r20char, isNPC = false) {
     const skills = {};
     for (const [r20name, fvttCode] of Object.entries(SKILL_MAP)) {
-      const raw = r20char.attr(`${r20name}_prof`);
+      let raw = r20char.attr(`${r20name}_prof`);
+      // Legacy NPC: профиль навыка хранится как флаг "npc_perception_flag" и т.п.
+      if (isNPC && raw === "" && r20char.flag(`npc_${r20name}_flag`)) raw = "1";
       skills[fvttCode] = {
         value: raw === "" ? 0 : parseFloat(raw) || 0,
       };

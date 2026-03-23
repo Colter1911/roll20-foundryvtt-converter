@@ -1,6 +1,13 @@
 /**
  * compendium-index.js — Индексирование Foundry компендиумов.
  * Строит лёгкий индекс имён для быстрого поиска, документы загружаются лениво.
+ *
+ * Индексирует:
+ *   - Item-паки выбранных модулей  → #itemEntries (standalone items)
+ *   - Actor-паки выбранных модулей → #actorEntries (actors)
+ *   - Встроенные items из Actor-паков → также добавляются в #itemEntries
+ *     (необходимо для русских модулей, где заклинания хранятся внутри НПС-акторов,
+ *      а не в отдельных Item-паках)
  */
 
 import { findBest } from "./name-matcher.js";
@@ -29,6 +36,16 @@ export class CompendiumIndex {
 
     this.#actorEntries = await this.#indexPacks(actorPackIds);
     this.#itemEntries  = await this.#indexPacks(itemPackIds);
+
+    // Дополнительно: встроенные items из Actor-паков.
+    // Это нужно для модулей (обычно русских локализаций), где заклинания и
+    // способности хранятся только как embedded items внутри НПС-акторов,
+    // а не в отдельных Item-компендиумах.
+    if (actorPackIds.length > 0) {
+      const embedded = await this.#indexActorEmbeddedItems(actorPackIds);
+      this.#itemEntries.push(...embedded);
+    }
+
     console.log(
       `R20Import | Library index built: ${this.#actorEntries.length} actors, ` +
       `${this.#itemEntries.length} items (threshold=${threshold})`
@@ -46,7 +63,7 @@ export class CompendiumIndex {
   }
 
   /**
-   * Найти item по имени в Item-паках.
+   * Найти item по имени в Item-паках (включая встроенные items из Actor-паков).
    * @param {string}  name
    * @param {string|null} [preferredType] — "spell"|"weapon"|"feat" и т.д.
    *        Если задан — сначала ищем среди items этого типа.
@@ -66,6 +83,9 @@ export class CompendiumIndex {
 
   /**
    * Загрузить полный документ по packId + docId (с кешированием).
+   * Для встроенных items (docId начинается с "emb_") данные уже в кеше
+   * и API-запрос не делается.
+   *
    * @param {string} packId
    * @param {string} docId
    * @returns {Promise<object|null>} — raw plain object (toObject())
@@ -73,6 +93,12 @@ export class CompendiumIndex {
   async loadDocument(packId, docId) {
     const key = `${packId}::${docId}`;
     if (this.#docCache.has(key)) return this.#docCache.get(key);
+
+    // Встроенные items (emb_…) должны всегда быть в кеше — если нет, что-то пошло не так
+    if (docId.startsWith("emb_")) {
+      console.warn(`R20Import | Embedded item cache miss: ${key}`);
+      return null;
+    }
 
     const pack = game.packs.get(packId);
     if (!pack) {
@@ -101,7 +127,8 @@ export class CompendiumIndex {
     const map = new Map();
 
     for (const pack of game.packs) {
-      const type = pack.metadata.type;
+      // Foundry v13 может хранить тип в documentName или metadata.type
+      const type = pack.metadata.type ?? pack.documentName;
       if (type !== "Actor" && type !== "Item") continue;
 
       const packageName = pack.metadata.packageName
@@ -160,6 +187,56 @@ export class CompendiumIndex {
         console.warn(`R20Import | Failed to index pack ${packId}:`, e.message);
       }
     }
+    return entries;
+  }
+
+  /**
+   * Загрузить все акторы из Actor-паков и извлечь встроенные items.
+   * Данные items кэшируются сразу — последующий loadDocument() не делает API-запросов.
+   *
+   * @param {string[]} packIds
+   * @returns {Promise<Array<{name, packId, docId, type}>>}
+   */
+  async #indexActorEmbeddedItems(packIds) {
+    const entries = [];
+
+    for (const packId of packIds) {
+      const pack = game.packs.get(packId);
+      if (!pack) continue;
+
+      try {
+        const docs = await pack.getDocuments();
+        let count = 0;
+
+        for (const actor of docs) {
+          const actorItems = actor.items ?? [];
+          for (const item of actorItems) {
+            // Синтетический docId — однозначно идентифицирует встроенный item
+            const syntheticDocId = `emb_${actor.id}_${item.id}`;
+            const cacheKey       = `${packId}::${syntheticDocId}`;
+
+            // Кэшируем полные данные item сразу, чтобы loadDocument() не делал API-запрос
+            const itemData = item.toObject?.() ?? item;
+            this.#docCache.set(cacheKey, itemData);
+
+            entries.push({
+              name:   item.name,
+              packId,
+              docId:  syntheticDocId,
+              type:   item.type ?? null,
+            });
+            count++;
+          }
+        }
+
+        if (count > 0) {
+          console.debug(`R20Import | Extracted ${count} embedded items from actor pack "${pack.metadata.label}"`);
+        }
+      } catch (e) {
+        console.warn(`R20Import | Failed to scan actor pack "${packId}" for embedded items:`, e.message);
+      }
+    }
+
     return entries;
   }
 }

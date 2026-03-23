@@ -133,9 +133,6 @@ export class R20Importer {
       const raw    = campaign.characters[i];
       const r20ch  = new R20Character(raw, i);
       
-      // Пропуск персонажей игроков (оставляем только NPC по просьбе пользователя)
-      if (!r20ch.flag("npc")) continue;
-
       const adapter = adapters.find(a => a.canHandle(r20ch)) ?? adapters[adapters.length - 1];
 
       const charDir = this.#findEntityDir("characters", r20ch.name, i);

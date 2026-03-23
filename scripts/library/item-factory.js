@@ -236,7 +236,7 @@ function buildActivity(row, activationType) {
  */
 export function buildNPCItemFromRow(row, activationType, idMapper) {
   const name        = f(row, "name", "atkname");
-  const description = f(row, "description");
+  const description = f(row, "description", "atk_desc");
   // Пропустить пустые items без имени и описания
   if (!name && !description) return null;
   const itemName = name || "Action";
@@ -306,6 +306,57 @@ export function buildSpellItemFromRow(row, idMapper) {
       level,
       activation: { type: "action", value: 1, condition: "" },
       activities,
+    },
+    flags: { "r20-to-fvtt": { originalId: row._id, builtFromScratch: true } },
+  };
+}
+
+/**
+ * Построить Foundry Item из строки repeating_inventory.
+ *
+ * @param {object} row     — inventory row
+ * @param {object} idMapper
+ * @returns {object} — Foundry Item data
+ */
+export function buildInventoryItemFromRow(row, idMapper) {
+  const name     = f(row, "itemname") || "Item";
+  const itemType = f(row, "itemarmor") ? "equipment" : "loot";
+  return {
+    _id:  idMapper.getOrCreate(row._id),
+    name,
+    type: itemType,
+    system: {
+      description: { value: f(row, "itemcontent"), chat: "" },
+      source:      { book: "Roll20 Import", page: "" },
+      quantity:    parseInt(f(row, "itemcount"))  || 1,
+      weight:      { value: parseFloat(f(row, "itemweight")) || 0, units: "lb" },
+      price:       { value: parseFloat(f(row, "itemcost"))   || 0, denomination: "gp" },
+      equipped:    f(row, "equipped") === "1",
+      identified:  true,
+    },
+    flags: { "r20-to-fvtt": { originalId: row._id, builtFromScratch: true } },
+  };
+}
+
+/**
+ * Построить Foundry Feat Item из строки repeating_traits.
+ *
+ * @param {object} row     — traits row
+ * @param {object} idMapper
+ * @returns {object|null} — Foundry Item data или null если пустая строка
+ */
+export function buildFeatItemFromRow(row, idMapper) {
+  const name = f(row, "name");
+  const desc = f(row, "description");
+  if (!name && !desc) return null;
+  return {
+    _id:  idMapper.getOrCreate(row._id),
+    name: name || "Trait",
+    type: "feat",
+    system: {
+      description: { value: desc, chat: "" },
+      source:      { book: "Roll20 Import", page: "" },
+      activation:  { type: "passive", value: null, condition: "" },
     },
     flags: { "r20-to-fvtt": { originalId: row._id, builtFromScratch: true } },
   };

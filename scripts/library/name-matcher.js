@@ -5,16 +5,18 @@
 
 /**
  * Нормализовать строку для сравнения:
- * lowercase, ё→е, убрать скобки и спецсимволы.
+ * Unicode NFC, lowercase, ё→е, неразрывный пробел, убрать скобки и знаки препинания.
  * @param {string} name
  * @returns {string}
  */
 export function normalize(name) {
   return String(name ?? "")
+    .normalize("NFC")               // объединить комбинированные Unicode символы
     .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/\s*\([^)]*\)/g, "")     // убрать (скобки с содержимым)
-    .replace(/['"«»,.:;!?\/\\]/g, "") // убрать пунктуацию
+    .replace(/ё/g, "е")            // ё → е (распространённое отличие источников)
+    .replace(/\u00a0/g, " ")       // неразрывный пробел → обычный
+    .replace(/\s*\([^)]*\)/g, "")  // убрать (скобки с содержимым)
+    .replace(/['"«»,.:;!?\/\\-]/g, "") // убрать пунктуацию и дефис
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -74,6 +76,10 @@ export function findBest(query, candidates, threshold = 0.8) {
       bestScore = score;
       bestItem  = c;
     }
+  }
+
+  if (bestScore < threshold && bestScore >= 0.5 && bestItem) {
+    console.debug(`R20Import | Near miss: "${query}" → "${bestItem.name}" (score=${bestScore.toFixed(2)}, threshold=${threshold})`);
   }
 
   return bestScore >= threshold ? { item: bestItem, score: bestScore } : null;

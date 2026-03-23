@@ -18,8 +18,9 @@ export class R20ImportDialog extends HandlebarsApplicationMixin(ApplicationV2) {
     },
     position: { width: 530 },
     actions: {
-      startImport: R20ImportDialog.#startImport,
-      close: R20ImportDialog.#closeDialog,
+      startImport:    R20ImportDialog.#startImport,
+      close:          R20ImportDialog.#closeDialog,
+      refreshModules: R20ImportDialog.#refreshModules,
     },
   };
 
@@ -32,13 +33,17 @@ export class R20ImportDialog extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Подготовить контекст для шаблона */
   async _prepareContext(options) {
     const lastOptions   = game.settings.get("r20-to-fvtt", "lastOptions") ?? {};
-    const lastModuleIds = new Set(lastOptions.moduleIds ?? []);
+    // null = настройки ещё не сохранялись → все модули отмечены по умолчанию
+    const lastModuleIds = lastOptions.moduleIds != null ? new Set(lastOptions.moduleIds) : null;
     const modules       = CompendiumIndex.getAvailableModules();
+
+    const version = game.modules.get("r20-to-fvtt")?.version ?? "—";
 
     return {
       lastOptions,
       thresholdPct: Math.round((lastOptions.threshold ?? 0.8) * 100),
-      modules: modules.map(m => ({ ...m, checked: lastModuleIds.has(m.id) })),
+      modules: modules.map(m => ({ ...m, checked: lastModuleIds === null || lastModuleIds.has(m.id) })),
+      version,
     };
   }
 
@@ -50,6 +55,16 @@ export class R20ImportDialog extends HandlebarsApplicationMixin(ApplicationV2) {
 
     if (!file) {
       ui.notifications.warn(game.i18n.localize("R20Import.Notify.NoFile"));
+      return;
+    }
+
+    // Читаем файл в буфер ДО закрытия диалога —
+    // браузер аннулирует File-ссылку когда <input> удаляется из DOM
+    let zipBuffer;
+    try {
+      zipBuffer = await file.arrayBuffer();
+    } catch (e) {
+      ui.notifications.error(`R20Import: не удалось прочитать файл: ${e.message}`);
       return;
     }
 
@@ -83,7 +98,7 @@ export class R20ImportDialog extends HandlebarsApplicationMixin(ApplicationV2) {
 
     try {
       const importer = new R20Importer(opts);
-      const result   = await importer.run(file, (p) => progress.update(p));
+      const result   = await importer.run(zipBuffer, (p) => progress.update(p));
 
       progress.close();
 
@@ -98,6 +113,27 @@ export class R20ImportDialog extends HandlebarsApplicationMixin(ApplicationV2) {
       progress.close();
       console.error("R20Import | Critical error:", err);
       ui.notifications.error(`R20Import: ${err.message}`);
+    }
+  }
+
+  /** Обновить список модулей: сохранить состояние и ре-рендерить диалог */
+  static async #refreshModules(_event, _target) {
+    // Сохранить текущее состояние чекбоксов в настройки,
+    // чтобы _prepareContext их подхватил после ре-рендера
+    const useLibrary = !!this.element.querySelector('[name="useLibrary"]')?.checked;
+    const moduleIds  = [...this.element.querySelectorAll('[name="libraryModule"]:checked')]
+      .map(el => el.value);
+    const lastOptions = game.settings.get("r20-to-fvtt", "lastOptions") ?? {};
+    await game.settings.set("r20-to-fvtt", "lastOptions", { ...lastOptions, useLibrary, moduleIds });
+
+    // Ре-рендер: _prepareContext снова вызовет getAvailableModules()
+    await this.render();
+
+    const count = CompendiumIndex.getAvailableModules().length;
+    if (count > 0) {
+      ui.notifications.info(`R20Import: найдено ${count} модулей с компендиумами`);
+    } else {
+      ui.notifications.warn("R20Import: компендиумы не найдены (нужны паки Actor или Item)");
     }
   }
 

@@ -1,0 +1,113 @@
+/* Roll20 → Foundry VTT Import Module */
+
+/* Кнопка в сайдбаре */
+.r20-import-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #8b1a1a, #c0392b);
+  color: #fff;
+  border: 1px solid #6b1010;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 600;
+  margin-bottom: 6px;
+  transition: background 0.2s ease;
+}
+
+.r20-import-btn:hover {
+  background: linear-gradient(135deg, #a52020, #e74c3c);
+}
+
+.r20-import-btn i {
+  font-size: 1em;
+}
+
+/* Диалог импорта */
+.r20-import-dialog .window-content {
+  padding: 12px;
+}
+
+.r20-import-dialog h3 {
+  margin: 12px 0 6px;
+  font-size: 0.9em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #555;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 4px;
+}
+
+.r20-import-dialog .form-group {
+  margin-bottom: 8px;
+}
+
+.r20-import-dialog .form-group label {
+  font-weight: 600;
+  min-width: 180px;
+}
+
+.r20-import-dialog .import-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.r20-import-dialog .import-options .form-group {
+  margin-bottom: 4px;
+}
+
+.r20-import-dialog .warning-text {
+  font-size: 0.8em;
+  color: #8a4a00;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 8px 0;
+}
+
+.r20-import-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #ccc;
+  margin-top: 8px;
+}
+
+/* Диалог прогресса */
+.r20-progress-dialog .window-content {
+  padding: 16px;
+}
+
+.r20-progress-bar-wrap {
+  background: #ddd;
+  border-radius: 4px;
+  height: 20px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.r20-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.r20-progress-label {
+  font-size: 0.85em;
+  color: #555;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.r20-progress-step {
+  font-size: 0.8em;
+  color: #888;
+  text-align: center;
+}

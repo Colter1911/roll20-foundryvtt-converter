@@ -1,0 +1,69 @@
+<div class="r20-import-dialog">
+  <div class="form-group">
+    <label>{{localize "R20Import.Dialog.FileLabel"}}</label>
+    <input type="file" name="zipFile" accept=".zip" required />
+  </div>
+
+  <h3>{{localize "R20Import.Dialog.OptionsTitle"}}</h3>
+  <div class="import-options">
+    <div class="form-group">
+      <input type="checkbox" name="importActors" id="r20-importActors"
+        {{#if lastOptions.importActors}}checked{{else}}checked{{/if}} />
+      <label for="r20-importActors">{{localize "R20Import.Dialog.ImportActors"}}</label>
+    </div>
+    <div class="form-group">
+      <input type="checkbox" name="importJournal" id="r20-importJournal"
+        {{#if lastOptions.importJournal}}checked{{/if}} />
+      <label for="r20-importJournal">{{localize "R20Import.Dialog.ImportJournal"}}</label>
+    </div>
+    <div class="form-group">
+      <input type="checkbox" name="importScenes" id="r20-importScenes"
+        {{#if lastOptions.importScenes}}checked{{/if}} />
+      <label for="r20-importScenes">{{localize "R20Import.Dialog.ImportScenes"}}</label>
+    </div>
+    <div class="form-group">
+      <input type="checkbox" name="importTables" id="r20-importTables"
+        {{#if lastOptions.importTables}}checked{{/if}} />
+      <label for="r20-importTables">{{localize "R20Import.Dialog.ImportTables"}}</label>
+    </div>
+    <div class="form-group">
+      <input type="checkbox" name="importPlaylists" id="r20-importPlaylists"
+        {{#if lastOptions.importPlaylists}}checked{{/if}} />
+      <label for="r20-importPlaylists">{{localize "R20Import.Dialog.ImportPlaylists"}}</label>
+    </div>
+    <div class="form-group">
+      <input type="checkbox" name="importMacros" id="r20-importMacros"
+        {{#if lastOptions.importMacros}}checked{{/if}} />
+      <label for="r20-importMacros">{{localize "R20Import.Dialog.ImportMacros"}}</label>
+    </div>
+  </div>
+
+  <h3>{{localize "R20Import.Dialog.AdvancedTitle"}}</h3>
+  <div class="form-group">
+    <input type="checkbox" name="autoDoors" id="r20-autoDoors"
+      {{#if lastOptions.autoDoors}}checked{{/if}} />
+    <label for="r20-autoDoors">{{localize "R20Import.Dialog.AutoDoors"}}</label>
+  </div>
+  <div class="form-group">
+    <label for="r20-doorColor">{{localize "R20Import.Dialog.DoorColor"}}</label>
+    <input type="text" name="doorColor" id="r20-doorColor"
+      value="{{lastOptions.doorColor}}" placeholder="#6600cc" style="width:100px" />
+  </div>
+  <div class="form-group">
+    <label for="r20-secretDoorColor">{{localize "R20Import.Dialog.SecretDoorColor"}}</label>
+    <input type="text" name="secretDoorColor" id="r20-secretDoorColor"
+      value="{{lastOptions.secretDoorColor}}" placeholder="#ff0000" style="width:100px" />
+  </div>
+
+  <p class="warning-text">{{localize "R20Import.Dialog.Warning"}}</p>
+
+  <footer>
+    <button type="button" data-action="startImport">
+      <i class="fa-solid fa-file-import"></i>
+      {{localize "R20Import.Dialog.Start"}}
+    </button>
+    <button type="button" data-action="close">
+      {{localize "R20Import.Dialog.Cancel"}}
+    </button>
+  </footer>
+</div>
